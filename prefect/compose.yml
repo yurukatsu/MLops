@@ -1,0 +1,124 @@
+services:
+  prefect-redis:
+    image: redis:7
+    volumes:
+      - prefect-redis-data:/data
+    networks:
+      - prefect-net
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  prefect-postgres:
+    image: postgres:13.22-trixie
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      POSTGRES_DB: "${POSTGRES_DB}"
+      TZ: "Asia/Tokyo"
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - prefect-postgres-data:/var/lib/postgresql/data
+    networks:
+      - prefect-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prefect"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  prefect-server:
+    image: prefecthq/prefect:3-latest
+    depends_on:
+      prefect-postgres:
+        condition: service_healthy
+      prefect-redis:
+        condition: service_healthy
+    environment:
+      PREFECT_API_DATABASE_CONNECTION_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@prefect-postgres:5432/${POSTGRES_DB}
+      PREFECT_SERVER_API_HOST: 0.0.0.0
+      PREFECT_MESSAGING_BROKER: prefect_redis.messaging
+      PREFECT_MESSAGING_CACHE: prefect_redis.messaging
+      PREFECT_REDIS_MESSAGING_HOST: prefect-redis
+      PREFECT_REDIS_MESSAGING_PORT: 6379
+      PREFECT_REDIS_MESSAGING_DB: 0
+      TZ: "Asia/Tokyo"
+    ports:
+      - "${PREFECT_SERVER_PORT:-4200}:4200"
+    networks:
+      - prefect-net
+    command: >
+      prefect server start
+      --host 0.0.0.0
+      --port 4200
+      --log-level INFO
+
+  prefect-services:
+    image: prefecthq/prefect:3-latest
+    depends_on:
+      prefect-postgres:
+        condition: service_healthy
+      prefect-redis:
+        condition: service_healthy
+    environment:
+      PREFECT_API_DATABASE_CONNECTION_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@prefect-postgres:5432/${POSTGRES_DB}
+      PREFECT_SERVER_API_HOST: 0.0.0.0
+      PREFECT_MESSAGING_BROKER: prefect_redis.messaging
+      PREFECT_MESSAGING_CACHE: prefect_redis.messaging
+      PREFECT_REDIS_MESSAGING_HOST: prefect-redis
+      PREFECT_REDIS_MESSAGING_PORT: 6379
+      PREFECT_REDIS_MESSAGING_DB: 0
+      TZ: "Asia/Tokyo"
+    networks:
+      - prefect-net
+    command: >
+      prefect server services start
+
+  prefect-init:
+    image: prefecthq/prefect:3-latest
+    depends_on:
+      prefect-server:
+        condition: service_started
+    environment:
+      PREFECT_API_URL: http://prefect-server:4200/api
+      TZ: "Asia/Tokyo"
+    networks:
+      - prefect-net
+    command: >
+      bash -lc "
+      prefect work-pool ls --limit 100 | grep -q '^local-pool ' ||
+      prefect work-pool create local-pool -t process
+      "
+    restart: "no"
+
+  prefect-worker:
+    image: prefecthq/prefect:3-latest
+    expose:
+      - "4200"
+    depends_on:
+      prefect-server:
+        condition: service_started
+      prefect-init:
+        condition: service_completed_successfully
+    environment:
+      PREFECT_API_URL: http://prefect-server:4200/api
+      TZ: "Asia/Tokyo"
+    ports:
+      - "${PREFECT_SERVER_PORT:-4200}:4200"
+    networks:
+      - prefect-net
+    command: >
+      prefect worker start
+      --pool local-pool
+    restart: unless-stopped
+
+volumes:
+  prefect-postgres-data:
+  prefect-redis-data:
+
+networks:
+  prefect-net:
+    driver: bridge
