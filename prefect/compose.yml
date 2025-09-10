@@ -42,6 +42,7 @@ services:
       PREFECT_API_DATABASE_CONNECTION_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@prefect-postgres:5432/${POSTGRES_DB}
       PREFECT_SERVER_ANALYTICS_ENABLED: "false"
       PREFECT_ANONYMOUS_TELEMETRY: "false"
+      PREFECT_UI_API_URL: "http://localhost:${PREFECT_SERVER_PORT}/api"
       PREFECT_SERVER_API_HOST: 0.0.0.0
       PREFECT_MESSAGING_BROKER: prefect_redis.messaging
       PREFECT_MESSAGING_CACHE: prefect_redis.messaging
@@ -50,7 +51,7 @@ services:
       PREFECT_REDIS_MESSAGING_DB: 0
       TZ: "Asia/Tokyo"
     ports:
-      - "${PREFECT_SERVER_PORT:-4200}:4200"
+      - "${PREFECT_SERVER_PORT}:4200"
     networks:
       - prefect-net
     command: >
