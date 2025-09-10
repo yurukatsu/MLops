@@ -40,8 +40,8 @@ services:
         condition: service_healthy
     environment:
       PREFECT_API_DATABASE_CONNECTION_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@prefect-postgres:5432/${POSTGRES_DB}
-      PREFECT_SERVER_ANALYTICS_ENABLED: "false"   # サーバーテレメトリOFF
-      PREFECT_ANONYMOUS_TELEMETRY: "false"        # クライアント側もOFF
+      PREFECT_SERVER_ANALYTICS_ENABLED: "false"
+      PREFECT_ANONYMOUS_TELEMETRY: "false"
       PREFECT_SERVER_API_HOST: 0.0.0.0
       PREFECT_MESSAGING_BROKER: prefect_redis.messaging
       PREFECT_MESSAGING_CACHE: prefect_redis.messaging
@@ -83,22 +83,6 @@ services:
       - prefect-net
     command: >
       prefect server services start
-    restart: unless-stopped
-
-  prefect-worker:
-    image: prefecthq/prefect:3-latest
-    depends_on:
-      prefect-server:
-        condition: service_started
-    environment:
-      PREFECT_API_URL: http://prefect-server:4200/api
-      PREFECT_ANONYMOUS_TELEMETRY: "false"
-      TZ: "Asia/Tokyo"
-    networks:
-      - prefect-net
-    command: >
-      prefect worker start
-      --pool local-pool
     restart: unless-stopped
 
 volumes:
