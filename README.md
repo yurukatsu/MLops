@@ -5,6 +5,9 @@ MLflow と Prefect を使用した機械学習オペレーション環境です�
 ## 構成
 
 - **MLflow**: 機械学習実験管理・モデル管理
+
+![mlflow-architecture](./docs/imgs/mlflow-architecture.png)
+
 - **Prefect**: ワークフロー管理・データパイプライン
 
 ## 使用方法
